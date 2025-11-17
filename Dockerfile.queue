@@ -1,45 +1,18 @@
-# Dockerfile для Queue Worker с Supervisor
-FROM php:8.2-fpm-alpine
+# Dockerfile для Queue Worker с Supervisor - используем готовый образ Sail
+FROM laravelsail/php83-composer:latest
 
-# Настройка Alpine репозиториев
-RUN echo "http://dl-cdn.alpinelinux.org/alpine/v3.19/main" > /etc/apk/repositories && \
-    echo "http://dl-cdn.alpinelinux.org/alpine/v3.19/community" >> /etc/apk/repositories
-
-# Установка системных зависимостей
-RUN apk update && \
-    apk add --no-cache \
-    bash \
-    git \
-    curl \
-    wget \
-    zip \
-    unzip \
-    supervisor
-
-# Установка библиотек для PHP
-RUN apk add --no-cache \
-    libpng-dev \
-    oniguruma-dev \
-    libxml2-dev \
-    libzip-dev \
-    freetype-dev \
-    libjpeg-turbo-dev
-
-# Установка PHP расширений
-RUN docker-php-ext-configure gd --with-freetype --with-jpeg && \
-    docker-php-ext-install -j$(nproc) pdo_mysql mbstring exif pcntl bcmath gd zip
-
-# Установка Composer
-RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+# Установка supervisor
+RUN apt-get update && apt-get install -y supervisor && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Установка рабочей директории
-WORKDIR /var/www
+WORKDIR /var/www/html
 
 # Создание директорий для логов
-RUN mkdir -p /var/log/supervisor \
-    && mkdir -p /var/www/storage/logs \
-    && chown -R www-data:www-data /var/www/storage \
-    && chown -R www-data:www-data /var/log/supervisor
+RUN mkdir -p /var/log/supervisor && \
+    chown -R sail:sail /var/log/supervisor
+
+USER sail
 
 # Запуск supervisord
 CMD ["/usr/bin/supervisord", "-n", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
