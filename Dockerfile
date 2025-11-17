@@ -1,46 +1,19 @@
-# Dockerfile для Laravel приложения
-FROM php:8.2-fpm-alpine
+# Dockerfile для Laravel приложения - используем готовый образ Sail
+FROM laravelsail/php83-composer:latest
 
-# Настройка Alpine репозиториев для более быстрой установки
-RUN echo "http://dl-cdn.alpinelinux.org/alpine/v3.19/main" > /etc/apk/repositories && \
-    echo "http://dl-cdn.alpinelinux.org/alpine/v3.19/community" >> /etc/apk/repositories
-
-# Установка системных зависимостей (Alpine) - разбито на этапы для кеширования
-RUN apk update && \
-    apk add --no-cache \
-    bash \
-    git \
-    curl \
-    wget \
-    zip \
-    unzip
-
-# Установка библиотек для PHP расширений
-RUN apk add --no-cache \
-    libpng-dev \
-    oniguruma-dev \
-    libxml2-dev \
-    libzip-dev \
-    freetype-dev \
-    libjpeg-turbo-dev
-
-# Установка Node.js и npm отдельным слоем
-RUN apk add --no-cache nodejs npm
-
-# Установка PHP расширений
-RUN docker-php-ext-configure gd --with-freetype --with-jpeg && \
-    docker-php-ext-install -j$(nproc) pdo_mysql mbstring exif pcntl bcmath gd zip
-
-# Установка Composer
-RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+# Установка supervisor для управления процессами
+RUN apt-get update && apt-get install -y supervisor && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Установка рабочей директории
-WORKDIR /var/www
+WORKDIR /var/www/html
 
 # Установка прав доступа
-RUN chown -R www-data:www-data /var/www
+RUN chown -R sail:sail /var/www/html
 
 # Expose порт 9000 для PHP-FPM
 EXPOSE 9000
+
+USER sail
 
 CMD ["php-fpm"]
