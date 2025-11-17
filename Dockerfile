@@ -1,19 +1,30 @@
-# Dockerfile для Laravel приложения - используем готовый образ Sail
-FROM laravelsail/php83-composer:latest
+FROM php:8.3-fpm
 
-# Установка supervisor для управления процессами
-RUN apt-get update && apt-get install -y supervisor && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+ARG UID=1000
+ARG GID=1000
 
-# Установка рабочей директории
+RUN groupadd -g ${GID} appgroup \
+    && useradd -u ${UID} -g appgroup -m appuser
+
+RUN apt-get update && apt-get install -y \
+    libpng-dev libjpeg-dev libfreetype6-dev libzip-dev libonig-dev git unzip curl default-mysql-client \
+    && curl -sL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get update \
+    && apt-get install -y nodejs
+
+RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install gd pdo_mysql zip mbstring exif pcntl bcmath
+
+RUN npm install -g npm@latest
+
+RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+
 WORKDIR /var/www/html
 
-# Установка прав доступа
-RUN chown -R sail:sail /var/www/html
+RUN chown -R appuser:appgroup /var/www/html
 
-# Expose порт 9000 для PHP-FPM
+USER appuser
+
 EXPOSE 9000
-
-USER sail
 
 CMD ["php-fpm"]
