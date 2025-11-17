@@ -16,8 +16,8 @@ RUN apt-get update && apt-get install -y \
     && docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd zip \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Установка Composer
-COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+# Установка Composer напрямую (без дополнительного образа)
+RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
 
 # Установка рабочей директории
 WORKDIR /var/www

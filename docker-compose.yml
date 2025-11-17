@@ -1,6 +1,4 @@
 # Docker Compose для Laravel приложения
-version: '3.8'
-
 services:
   # PHP-FPM
   app:
