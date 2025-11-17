@@ -22,3 +22,12 @@
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# Docker
+docker-compose.override.yml
+docker/ssl/*.crt
+docker/ssl/*.key
+docker/ssl/*.pem
+backups/
+*.sql
+*.sql.gz

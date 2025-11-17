@@ -1,11 +1,30 @@
-@import 'tailwindcss';
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
-@source '../../storage/framework/views/*.php';
-@source '../**/*.blade.php';
-@source '../**/*.js';
+[x-cloak] {
+    display: none;
+}
 
-@theme {
-    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
-        'Segoe UI Symbol', 'Noto Color Emoji';
+/* Fix для select в dark mode */
+@layer base {
+    /* Стили для select элементов */
+    select {
+        @apply dark:bg-gray-700 dark:text-gray-100 dark:border-gray-600;
+    }
+
+    /* Стили для option элементов */
+    select option {
+        @apply dark:bg-gray-700 dark:text-gray-100;
+    }
+
+    /* Стиль для placeholder опции */
+    select option:disabled {
+        @apply dark:text-gray-400;
+    }
+
+    /* Стиль для выбранной опции */
+    select option:checked {
+        @apply dark:bg-gray-600;
+    }
 }
