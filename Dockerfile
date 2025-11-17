@@ -6,7 +6,8 @@ ARG GID=1000
 RUN groupadd -g ${GID} appgroup \
     && useradd -u ${UID} -g appgroup -m appuser
 
-RUN apt-get update && apt-get install -y \
+RUN sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list.d/debian.sources && \
+    apt-get update && apt-get install -y \
     libpng-dev libjpeg-dev libfreetype6-dev libzip-dev libonig-dev git unzip curl default-mysql-client \
     && curl -sL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get update \
