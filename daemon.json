@@ -1,7 +1,8 @@
 {
   "registry-mirrors": [
     "https://mirror.gcr.io",
-    "https://dockerhub.timeweb.cloud"
+    "https://dockerhub.timeweb.cloud",
+    "https://huecker.io"
   ],
   "dns": ["8.8.8.8", "8.8.4.4", "1.1.1.1"],
   "max-concurrent-downloads": 3,
