@@ -38,9 +38,9 @@ USER root
 RUN mkdir -p /var/www/vendor /var/www/node_modules /var/www/public/build \
     && chown -R appuser:appgroup /var/www
 
-# Устанавливаем composer зависимости
+# Устанавливаем composer зависимости (без скриптов, так как нет .env)
 USER appuser
-RUN composer install --no-dev --optimize-autoloader --no-interaction
+RUN composer install --no-dev --optimize-autoloader --no-interaction --no-scripts
 
 # Устанавливаем npm зависимости и собираем фронтенд
 RUN npm ci && npm run build
