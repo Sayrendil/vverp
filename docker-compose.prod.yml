@@ -30,9 +30,9 @@ services:
     depends_on:
       - app
 
-  # MySQL
+  # MySQL (5.7 для совместимости со старыми CPU)
   db:
-    image: mysql:8.0
+    image: mysql:5.7
     container_name: vverp_db
     restart: unless-stopped
     environment:
@@ -62,7 +62,7 @@ services:
     depends_on:
       - app
       - db
-    user: "${UID:-1000}:${GID:-1000}"
+    # user убран - supervisord сам управляет пользователями
 
   # Node для Vite
   node:
