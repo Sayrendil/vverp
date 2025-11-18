@@ -2,12 +2,7 @@ FROM serversideup/php:8.2-fpm-nginx
 
 USER root
 
-# Настройка быстрых зеркал APT (на основе тестов доступности)
-RUN find /etc/apt/sources.list.d/ -type f -exec sed -i 's|deb.debian.org|mirror.timeweb.ru/debian|g' {} \; 2>/dev/null || true && \
-    sed -i 's|deb.debian.org|mirror.timeweb.ru/debian|g' /etc/apt/sources.list 2>/dev/null || true && \
-    sed -i 's|security.debian.org|mirror.timeweb.ru/debian|g' /etc/apt/sources.list 2>/dev/null || true
-
-# Установка пакетов через доступные зеркала
+# Установка пакетов (используем оригинальные репозитории Debian для Trixie)
 RUN apt-get update && apt-get install -y supervisor nodejs npm && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
