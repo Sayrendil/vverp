@@ -6,6 +6,11 @@ use Inertia\Inertia;
 use App\Http\Controllers\TicketController;
 use App\Http\Controllers\DictionaryController;
 use App\Http\Controllers\ExecutorController;
+use App\Http\Controllers\ProjectController;
+use App\Http\Controllers\TaskController;
+use App\Http\Controllers\TaskCommentController;
+use App\Http\Controllers\TaskAttachmentController;
+use App\Http\Controllers\ProjectMemberController;
 
 /*
 |--------------------------------------------------------------------------
@@ -86,4 +91,50 @@ Route::middleware([
             Route::put('/{dictionary}/{id}', [DictionaryController::class, 'update'])->name('update');
             Route::delete('/{dictionary}/{id}', [DictionaryController::class, 'destroy'])->name('destroy');
         });
+
+    /*
+    |--------------------------------------------------------------------------
+    | Модуль управления задачами (Tasks)
+    |--------------------------------------------------------------------------
+    */
+
+    // Проекты
+    Route::prefix('projects')->name('projects.')->group(function () {
+        Route::get('/', [ProjectController::class, 'index'])->name('index');
+        Route::get('/create', [ProjectController::class, 'create'])->name('create');
+        Route::post('/', [ProjectController::class, 'store'])->name('store');
+        Route::get('/{project:key}', [ProjectController::class, 'show'])->name('show');
+        Route::get('/{project:key}/edit', [ProjectController::class, 'edit'])->name('edit');
+        Route::put('/{project:key}', [ProjectController::class, 'update'])->name('update');
+        Route::delete('/{project:key}', [ProjectController::class, 'destroy'])->name('destroy');
+
+        // Настройки проекта
+        Route::get('/{project:key}/settings', [ProjectController::class, 'settings'])->name('settings');
+
+        // Управление участниками проекта
+        Route::post('/{project:key}/members', [ProjectMemberController::class, 'store'])->name('members.store');
+        Route::put('/{project:key}/members/{user}', [ProjectMemberController::class, 'updateRole'])->name('members.update-role');
+        Route::delete('/{project:key}/members/{user}', [ProjectMemberController::class, 'destroy'])->name('members.destroy');
+    });
+
+    // Задачи
+    Route::prefix('tasks')->name('tasks.')->group(function () {
+        Route::get('/{task}', [TaskController::class, 'show'])->name('show');
+        Route::post('/', [TaskController::class, 'store'])->name('store');
+        Route::put('/{task}', [TaskController::class, 'update'])->name('update');
+        Route::delete('/{task}', [TaskController::class, 'destroy'])->name('destroy');
+
+        // Быстрые действия с задачами
+        Route::post('/{task}/status', [TaskController::class, 'updateStatus'])->name('update-status');
+        Route::post('/{task}/assignee', [TaskController::class, 'updateAssignee'])->name('update-assignee');
+        Route::post('/{task}/priority', [TaskController::class, 'updatePriority'])->name('update-priority');
+
+        // Комментарии
+        Route::post('/{task}/comments', [TaskCommentController::class, 'store'])->name('comments.store');
+        Route::delete('/comments/{comment}', [TaskCommentController::class, 'destroy'])->name('comments.destroy');
+
+        // Вложения
+        Route::post('/{task}/attachments', [TaskAttachmentController::class, 'store'])->name('attachments.store');
+        Route::delete('/attachments/{attachment}', [TaskAttachmentController::class, 'destroy'])->name('attachments.destroy');
+    });
 });
