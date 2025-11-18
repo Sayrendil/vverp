@@ -3,6 +3,7 @@
 namespace App\Listeners;
 
 use App\Events\TicketCreated;
+use App\Models\Ticket;
 use App\Services\TelegramBotService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Queue\InteractsWithQueue;
@@ -32,13 +33,8 @@ class SendTicketCreatedTelegramNotification implements ShouldQueue
     {
         $ticket = $event->ticket;
 
-        // Если тикет создан через Telegram - не отправляем дублирующее уведомление
-        if ($ticket->created_via === 'telegram') {
-            return;
-        }
-
         // Получаем пользователя создавшего тикет
-        $user = $ticket->user;
+        $user = $ticket->author;
 
         // Проверяем есть ли у пользователя Telegram ID
         if (!$user->telegram_id) {

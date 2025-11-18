@@ -250,6 +250,27 @@ class CallbackQueryHandler implements UpdateHandler
                             'document' => $this->bot->sendDocument($chatId, $attachment->telegram_file_id, $caption),
                             default => null,
                         };
+                    } else if ($attachment->file_path) {
+                        // Fallback: отправляем файл по публичному URL (для заявок созданных через веб)
+                        $filePath = storage_path('app/public/' . $attachment->file_path);
+
+                        if (file_exists($filePath)) {
+                            // Генерируем публичный URL для файла
+                            $publicUrl = url('storage/' . $attachment->file_path);
+
+                            match($attachment->file_type) {
+                                'photo' => $this->bot->sendPhoto($chatId, $publicUrl, $caption),
+                                'video' => $this->bot->sendVideo($chatId, $publicUrl, $caption),
+                                'document' => $this->bot->sendDocument($chatId, $publicUrl, $caption),
+                                default => null,
+                            };
+                        } else {
+                            Log::warning('Attachment file not found', [
+                                'ticket_id' => $ticketId,
+                                'attachment_id' => $attachment->id,
+                                'file_path' => $filePath,
+                            ]);
+                        }
                     }
                 } catch (\Exception $e) {
                     Log::error('Failed to send attachment', [

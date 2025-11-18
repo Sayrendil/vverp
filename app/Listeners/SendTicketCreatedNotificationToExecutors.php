@@ -80,11 +80,15 @@ class SendTicketCreatedNotificationToExecutors implements ShouldQueue
         // Отправляем уведомление каждому исполнителю
         foreach ($executors as $executor) {
             try {
+                // Отправляем основное сообщение с кнопками
                 $this->bot->sendMessage(
                     $executor->telegram_id,
                     $message,
                     ['reply_markup' => ['inline_keyboard' => $buttons]]
                 );
+
+                // Отправляем вложения (если есть)
+                $this->sendAttachments($ticket, $executor->telegram_id);
 
                 Log::info('Notification sent to executor', [
                     'ticket_id' => $ticket->id,
@@ -149,6 +153,62 @@ class SendTicketCreatedNotificationToExecutors implements ShouldQueue
                 ['text' => '👁 Подробнее', 'callback_data' => "view_ticket:{$ticket->id}"],
             ],
         ];
+    }
+
+    /**
+     * Отправить вложения заявки в Telegram
+     */
+    private function sendAttachments($ticket, string $telegramId): void
+    {
+        $attachments = $ticket->attachments;
+
+        if ($attachments->isEmpty()) {
+            return;
+        }
+
+        foreach ($attachments as $attachment) {
+            try {
+                $caption = "📎 Вложение к заявке #{$ticket->id}";
+
+                // Используем telegram_file_id если есть (для файлов загруженных через Telegram)
+                if ($attachment->telegram_file_id) {
+                    match($attachment->file_type) {
+                        'photo' => $this->bot->sendPhoto($telegramId, $attachment->telegram_file_id, $caption),
+                        'video' => $this->bot->sendVideo($telegramId, $attachment->telegram_file_id, $caption),
+                        'document' => $this->bot->sendDocument($telegramId, $attachment->telegram_file_id, $caption),
+                        default => null,
+                    };
+                } else if ($attachment->file_path) {
+                    // Для файлов загруженных через веб - используем публичный URL
+                    $filePath = storage_path('app/public/' . $attachment->file_path);
+
+                    if (file_exists($filePath)) {
+                        $publicUrl = url('storage/' . $attachment->file_path);
+
+                        match($attachment->file_type) {
+                            'photo' => $this->bot->sendPhoto($telegramId, $publicUrl, $caption),
+                            'video' => $this->bot->sendVideo($telegramId, $publicUrl, $caption),
+                            'document' => $this->bot->sendDocument($telegramId, $publicUrl, $caption),
+                            default => null,
+                        };
+                    } else {
+                        Log::warning('Attachment file not found', [
+                            'ticket_id' => $ticket->id,
+                            'attachment_id' => $attachment->id,
+                            'file_path' => $filePath,
+                        ]);
+                    }
+                }
+            } catch (\Exception $e) {
+                Log::error('Failed to send attachment', [
+                    'ticket_id' => $ticket->id,
+                    'attachment_id' => $attachment->id,
+                    'error' => $e->getMessage(),
+                ]);
+                // Продолжаем отправлять остальные вложения
+                continue;
+            }
+        }
     }
 
     /**

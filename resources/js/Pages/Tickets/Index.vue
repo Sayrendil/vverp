@@ -1,6 +1,6 @@
 <script setup>
-import { ref } from 'vue';
-import { Head, Link, router } from '@inertiajs/vue3';
+import { ref, computed } from 'vue';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
 const props = defineProps({
@@ -11,6 +11,9 @@ const props = defineProps({
     categories: Array,
     userCategory: Number, // Категория текущего пользователя
 });
+
+const page = usePage();
+const user = computed(() => page.props.auth.user);
 
 const searchQuery = ref(props.filters?.search || '');
 const selectedStatus = ref(props.filters?.status || '');
@@ -67,6 +70,62 @@ const formatDate = (dateString) => {
         day: '2-digit',
         hour: '2-digit',
         minute: '2-digit',
+    });
+};
+
+// Проверки прав для быстрых действий
+const canTakeToWork = (ticket) => {
+    // Проверяем, является ли пользователь исполнителем категории
+    const isExecutorOfCategory = ticket.ticketCategory?.id === user.value.ticket_category_id
+        || (user.value.role === 'admin' && user.value.ticket_category_id === ticket.ticketCategory?.id);
+
+    const isExecutor = ticket.executor?.id === user.value.id;
+
+    // Для статуса "Создана" - исполнители категории без исполнителя
+    const statusCreated = ticket.status?.name === 'Создана' && !ticket.executor && isExecutorOfCategory;
+
+    // Для статуса "Отложена" - исполнитель или исполнители категории без исполнителя
+    const statusPostponed = ticket.status?.name === 'Отложена'
+        && (isExecutor || (!ticket.executor && isExecutorOfCategory));
+
+    return statusCreated || statusPostponed;
+};
+
+const canPostpone = (ticket) => {
+    const isExecutor = ticket.executor?.id === user.value.id;
+    const isExecutorOfCategory = ticket.ticketCategory?.id === user.value.ticket_category_id
+        || (user.value.role === 'admin' && user.value.ticket_category_id === ticket.ticketCategory?.id);
+
+    const statusCreated = ticket.status?.name === 'Создана' && isExecutorOfCategory;
+    const statusInProgress = isExecutor && ticket.status?.name === 'В работе';
+
+    return statusCreated || statusInProgress;
+};
+
+const canSendForConfirmation = (ticket) => {
+    const isExecutor = ticket.executor?.id === user.value.id;
+    return isExecutor && ticket.status?.name === 'В работе';
+};
+
+// Быстрые действия
+const quickTakeToWork = (ticketId) => {
+    router.post(route('tickets.take-to-work', ticketId), {}, {
+        preserveScroll: true,
+        onSuccess: () => {
+            // Страница автоматически обновится
+        }
+    });
+};
+
+const quickPostpone = (ticketId) => {
+    router.post(route('tickets.postpone', ticketId), {}, {
+        preserveScroll: true,
+    });
+};
+
+const quickSendForConfirmation = (ticketId) => {
+    router.post(route('tickets.send-for-confirmation', ticketId), {}, {
+        preserveScroll: true,
     });
 };
 </script>
@@ -305,7 +364,48 @@ const formatDate = (dateString) => {
                                         </div>
                                     </td>
                                     <td class="px-6 py-4" @click.stop>
-                                        <div class="flex items-center justify-end gap-2">
+                                        <div class="flex items-center justify-end gap-1">
+                                            <!-- Быстрые кнопки управления -->
+                                            <button
+                                                v-if="canTakeToWork(ticket)"
+                                                @click="quickTakeToWork(ticket.id)"
+                                                class="p-2 text-green-400 hover:text-green-300 hover:bg-green-500/10 rounded-lg transition-colors"
+                                                title="Взять в работу"
+                                            >
+                                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                </svg>
+                                            </button>
+
+                                            <button
+                                                v-if="canPostpone(ticket)"
+                                                @click="quickPostpone(ticket.id)"
+                                                class="p-2 text-orange-400 hover:text-orange-300 hover:bg-orange-500/10 rounded-lg transition-colors"
+                                                title="Отложить"
+                                            >
+                                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                </svg>
+                                            </button>
+
+                                            <button
+                                                v-if="canSendForConfirmation(ticket)"
+                                                @click="quickSendForConfirmation(ticket.id)"
+                                                class="p-2 text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 rounded-lg transition-colors"
+                                                title="Отправить на подтверждение"
+                                            >
+                                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                                </svg>
+                                            </button>
+
+                                            <!-- Разделитель, если есть быстрые действия -->
+                                            <div
+                                                v-if="canTakeToWork(ticket) || canPostpone(ticket) || canSendForConfirmation(ticket)"
+                                                class="w-px h-6 bg-gray-600 mx-1"
+                                            ></div>
+
+                                            <!-- Стандартные кнопки -->
                                             <Link
                                                 :href="route('tickets.show', ticket.id)"
                                                 class="p-2 text-gray-400 hover:text-green-400 hover:bg-gray-700 rounded-lg transition-colors"
@@ -317,6 +417,7 @@ const formatDate = (dateString) => {
                                                 </svg>
                                             </Link>
                                             <Link
+                                                v-if="ticket.status?.name !== 'Завершена'"
                                                 :href="route('tickets.edit', ticket.id)"
                                                 class="p-2 text-gray-400 hover:text-blue-400 hover:bg-gray-700 rounded-lg transition-colors"
                                                 title="Редактировать"
