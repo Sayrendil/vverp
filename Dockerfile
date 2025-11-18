@@ -1,16 +1,37 @@
-FROM serversideup/php:8.2-fpm-nginx
+FROM php:8.2-fpm
 
-USER root
+ARG UID=1000
+ARG GID=1000
 
-# Установка пакетов (используем оригинальные репозитории Debian для Trixie)
-RUN apt-get update && apt-get install -y supervisor nodejs npm && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+# Создание пользователя и группы
+RUN groupadd -g ${GID} appgroup \
+    && useradd -u ${UID} -g appgroup -m appuser
+
+# Установка системных зависимостей и Node.js
+RUN apt-get update && apt-get install -y \
+    libpng-dev libjpeg-dev libfreetype6-dev libzip-dev libonig-dev \
+    git unzip curl default-mysql-client supervisor \
+    && curl -sL https://deb.nodesource.com/setup_18.x | bash - \
+    && apt-get update \
+    && apt-get install -y nodejs \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Установка PHP расширений
+RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install gd pdo_mysql zip mbstring
+
+# Установка npm и yarn
+RUN npm install -g npm@latest && npm install -g yarn
+
+# Установка Composer
+RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
 
 WORKDIR /var/www/html
 
-RUN chown -R www-data:www-data /var/www/html
+# Копирование файлов проекта
+COPY --chown=appuser:appgroup . /var/www/html
 
-USER www-data
+USER appuser
 
 EXPOSE 9000
 
