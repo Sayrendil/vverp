@@ -38,6 +38,12 @@ class TicketPolicy
             return true;
         }
 
+        // Исполнитель категории может просматривать все тикеты категории
+        // (чтобы иметь возможность взять их в работу)
+        if ($ticket->ticket_category_id && $user->isExecutorInCategory($ticket->ticket_category_id)) {
+            return true;
+        }
+
         return false;
     }
 
