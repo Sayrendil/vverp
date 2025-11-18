@@ -337,6 +337,123 @@ class TelegramBotService
     }
 
     /**
+     * Отправить фото
+     *
+     * @param int|string $chatId ID чата
+     * @param string $photo URL или file_id фото
+     * @param string|null $caption Подпись к фото
+     * @param array $options Дополнительные параметры
+     * @return array|null
+     */
+    public function sendPhoto($chatId, string $photo, ?string $caption = null, array $options = []): ?array
+    {
+        try {
+            $params = array_merge([
+                'chat_id' => $chatId,
+                'photo' => $photo,
+            ], $options);
+
+            if ($caption) {
+                $params['caption'] = $caption;
+                $params['parse_mode'] = 'HTML';
+            }
+
+            $response = Http::post($this->apiUrl . '/sendPhoto', $params);
+
+            if ($response->successful()) {
+                $data = $response->json();
+
+                if ($data['ok'] ?? false) {
+                    return $data['result'] ?? null;
+                }
+            }
+
+            return null;
+        } catch (\Exception $e) {
+            $this->handleApiError($e, 'sendPhoto');
+            return null;
+        }
+    }
+
+    /**
+     * Отправить видео
+     *
+     * @param int|string $chatId ID чата
+     * @param string $video URL или file_id видео
+     * @param string|null $caption Подпись к видео
+     * @param array $options Дополнительные параметры
+     * @return array|null
+     */
+    public function sendVideo($chatId, string $video, ?string $caption = null, array $options = []): ?array
+    {
+        try {
+            $params = array_merge([
+                'chat_id' => $chatId,
+                'video' => $video,
+            ], $options);
+
+            if ($caption) {
+                $params['caption'] = $caption;
+                $params['parse_mode'] = 'HTML';
+            }
+
+            $response = Http::post($this->apiUrl . '/sendVideo', $params);
+
+            if ($response->successful()) {
+                $data = $response->json();
+
+                if ($data['ok'] ?? false) {
+                    return $data['result'] ?? null;
+                }
+            }
+
+            return null;
+        } catch (\Exception $e) {
+            $this->handleApiError($e, 'sendVideo');
+            return null;
+        }
+    }
+
+    /**
+     * Отправить документ
+     *
+     * @param int|string $chatId ID чата
+     * @param string $document URL или file_id документа
+     * @param string|null $caption Подпись к документу
+     * @param array $options Дополнительные параметры
+     * @return array|null
+     */
+    public function sendDocument($chatId, string $document, ?string $caption = null, array $options = []): ?array
+    {
+        try {
+            $params = array_merge([
+                'chat_id' => $chatId,
+                'document' => $document,
+            ], $options);
+
+            if ($caption) {
+                $params['caption'] = $caption;
+                $params['parse_mode'] = 'HTML';
+            }
+
+            $response = Http::post($this->apiUrl . '/sendDocument', $params);
+
+            if ($response->successful()) {
+                $data = $response->json();
+
+                if ($data['ok'] ?? false) {
+                    return $data['result'] ?? null;
+                }
+            }
+
+            return null;
+        } catch (\Exception $e) {
+            $this->handleApiError($e, 'sendDocument');
+            return null;
+        }
+    }
+
+    /**
      * Скачать файл из Telegram
      *
      * @param string $fileId ID файла

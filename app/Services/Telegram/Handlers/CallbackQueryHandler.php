@@ -203,7 +203,7 @@ class CallbackQueryHandler implements UpdateHandler
      */
     private function handleViewTicket(int $ticketId, int $chatId): array
     {
-        $ticket = \App\Models\Ticket::with(['store', 'problem', 'status', 'executor', 'ticketCategory'])
+        $ticket = \App\Models\Ticket::with(['store', 'problem', 'status', 'executor', 'ticketCategory', 'attachments'])
             ->find($ticketId);
 
         if (!$ticket) {
@@ -233,7 +233,35 @@ class CallbackQueryHandler implements UpdateHandler
 
         $message .= "⏰ <b>Создана:</b> " . $ticket->created_at->format('d.m.Y H:i');
 
-        return ['success' => true, 'message' => $message];
+        // Отправляем основное сообщение
+        $this->bot->sendMessage($chatId, $message);
+
+        // Отправляем вложения, если они есть
+        if ($ticket->attachments && $ticket->attachments->count() > 0) {
+            foreach ($ticket->attachments as $index => $attachment) {
+                $caption = $index === 0 ? "📎 Вложение к заявке #{$ticket->id}" : null;
+
+                try {
+                    // Используем telegram_file_id если есть, это быстрее
+                    if ($attachment->telegram_file_id) {
+                        match($attachment->file_type) {
+                            'photo' => $this->bot->sendPhoto($chatId, $attachment->telegram_file_id, $caption),
+                            'video' => $this->bot->sendVideo($chatId, $attachment->telegram_file_id, $caption),
+                            'document' => $this->bot->sendDocument($chatId, $attachment->telegram_file_id, $caption),
+                            default => null,
+                        };
+                    }
+                } catch (\Exception $e) {
+                    Log::error('Failed to send attachment', [
+                        'ticket_id' => $ticketId,
+                        'attachment_id' => $attachment->id,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
+        }
+
+        return ['success' => true, 'message' => null]; // message уже отправлено
     }
 
     /**
