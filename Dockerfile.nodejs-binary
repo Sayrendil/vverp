@@ -1,9 +1,0 @@
-# Альтернативный вариант установки Node.js через бинарник
-# Используйте этот блок вместо текущего, если setup_20.x не работает
-
-# Устанавливаем Node.js 20 из бинарника
-RUN curl -fsSL https://nodejs.org/dist/v20.11.0/node-v20.11.0-linux-x64.tar.xz -o node.tar.xz \
-    && tar -xJf node.tar.xz -C /usr/local --strip-components=1 \
-    && rm node.tar.xz \
-    && node --version \
-    && npm --version

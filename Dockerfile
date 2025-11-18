@@ -33,6 +33,11 @@ WORKDIR /var/www
 
 COPY --chown=appuser:appgroup . /var/www
 
+# Создаем необходимые директории и даем права
+USER root
+RUN mkdir -p /var/www/vendor /var/www/node_modules /var/www/public/build \
+    && chown -R appuser:appgroup /var/www
+
 # Устанавливаем composer зависимости
 USER appuser
 RUN composer install --no-dev --optimize-autoloader --no-interaction
@@ -40,7 +45,6 @@ RUN composer install --no-dev --optimize-autoloader --no-interaction
 # Устанавливаем npm зависимости и собираем фронтенд
 RUN npm ci && npm run build
 
-# Даем права на storage и cache
 USER root
 RUN chown -R appuser:appgroup /var/www/storage /var/www/bootstrap/cache
 
