@@ -1,6 +1,4 @@
 # Docker Compose для production с готовыми образами
-version: '3.8'
-
 services:
   # PHP-FPM (из GitHub Container Registry)
   app:
