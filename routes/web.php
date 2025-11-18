@@ -46,6 +46,11 @@ Route::middleware([
     Route::post('/tickets/{id}/confirm-completion', [TicketController::class, 'confirmCompletion'])->name('tickets.confirm-completion');
     Route::post('/tickets/{id}/return-to-work', [TicketController::class, 'returnToWork'])->name('tickets.return-to-work');
 
+    // Админские действия с заявками
+    Route::post('/tickets/{id}/assign-executor', [TicketController::class, 'assignExecutor'])->name('tickets.assign-executor');
+    Route::post('/tickets/{id}/unassign-executor', [TicketController::class, 'unassignExecutor'])->name('tickets.unassign-executor');
+    Route::post('/tickets/{id}/admin-change-status', [TicketController::class, 'adminChangeStatus'])->name('tickets.admin-change-status');
+
     /*
     |--------------------------------------------------------------------------
     | Исполнители (только для администраторов)

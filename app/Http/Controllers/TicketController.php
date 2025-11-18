@@ -8,6 +8,7 @@ use App\Models\Problem;
 use App\Models\Store;
 use App\Models\Cash;
 use App\Models\TicketCategory;
+use App\Models\User;
 use App\Services\TicketService;
 use App\Http\Requests\StoreTicketRequest;
 use App\Http\Requests\UpdateTicketRequest;
@@ -107,6 +108,7 @@ class TicketController extends Controller
         // Проверяем право просмотра тикета
         $this->authorize('view', $ticket);
 
+        /** @var User $user */
         $user = Auth::user();
 
         // Проверяем, является ли пользователь исполнителем категории
@@ -118,9 +120,21 @@ class TicketController extends Controller
                 ->exists();
         }
 
+        // Для админов получаем список доступных исполнителей их категории
+        $availableExecutors = [];
+        if ($user->isAdmin() && $user->ticket_category_id === $ticket->ticket_category_id) {
+            $availableExecutors = $ticket->ticketCategory
+                ->activeExecutors()
+                ->select('users.id', 'users.name', 'users.email')
+                ->get()
+                ->toArray();
+        }
+
         return Inertia::render('Tickets/Show', [
             'ticket' => $ticket,
             'isExecutorOfCategory' => $isExecutorOfCategory,
+            'availableExecutors' => $availableExecutors,
+            'allStatuses' => Status::all(),
         ]);
     }
 
@@ -302,5 +316,78 @@ class TicketController extends Controller
         $this->ticketService->updateStatus($ticket, \App\Enums\TicketStatus::IN_PROGRESS->value);
 
         return back()->with('success', 'Заявка возвращена в работу');
+    }
+
+    /**
+     * Назначить исполнителя (только для админов)
+     */
+    public function assignExecutor(Request $request, string $id)
+    {
+        $ticket = $this->ticketService->getTicket($id);
+        /** @var User $user */
+        $user = Auth::user();
+
+        // Проверяем, что пользователь админ своей категории
+        if (!$user->isAdmin() || $user->ticket_category_id !== $ticket->ticket_category_id) {
+            return back()->with('error', 'У вас нет прав для назначения исполнителя');
+        }
+
+        $validated = $request->validate([
+            'executor_id' => 'required|exists:users,id',
+        ]);
+
+        // Назначаем исполнителя через сервис
+        $this->ticketService->assignExecutor($ticket, $validated['executor_id']);
+
+        return back()->with('success', 'Исполнитель назначен');
+    }
+
+    /**
+     * Снять исполнителя (только для админов)
+     */
+    public function unassignExecutor(string $id)
+    {
+        $ticket = $this->ticketService->getTicket($id);
+        /** @var User $user */
+        $user = Auth::user();
+
+        // Проверяем, что пользователь админ своей категории
+        if (!$user->isAdmin() || $user->ticket_category_id !== $ticket->ticket_category_id) {
+            return back()->with('error', 'У вас нет прав для снятия исполнителя');
+        }
+
+        // Снимаем исполнителя
+        $ticket->update(['executor_id' => null]);
+
+        // Если статус был "В работе", возвращаем в "Создана"
+        if ($ticket->status_id === \App\Enums\TicketStatus::IN_PROGRESS->value) {
+            $this->ticketService->updateStatus($ticket, \App\Enums\TicketStatus::CREATED->value);
+        }
+
+        return back()->with('success', 'Исполнитель снят с заявки');
+    }
+
+    /**
+     * Изменить статус (только для админов)
+     */
+    public function adminChangeStatus(Request $request, string $id)
+    {
+        $ticket = $this->ticketService->getTicket($id);
+        /** @var User $user */
+        $user = Auth::user();
+
+        // Проверяем, что пользователь админ своей категории
+        if (!$user->isAdmin() || $user->ticket_category_id !== $ticket->ticket_category_id) {
+            return back()->with('error', 'У вас нет прав для изменения статуса');
+        }
+
+        $validated = $request->validate([
+            'status_id' => 'required|exists:statuses,id',
+        ]);
+
+        // Меняем статус через сервис
+        $this->ticketService->updateStatus($ticket, $validated['status_id']);
+
+        return back()->with('success', 'Статус заявки изменен');
     }
 }

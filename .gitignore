@@ -31,3 +31,4 @@ docker/ssl/*.pem
 backups/
 *.sql
 *.sql.gz
+build.tar.gz

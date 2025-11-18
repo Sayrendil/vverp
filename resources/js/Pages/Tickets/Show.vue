@@ -9,6 +9,8 @@ import { ref, computed } from 'vue';
 const props = defineProps({
     ticket: Object,
     isExecutorOfCategory: Boolean,
+    availableExecutors: Array,
+    allStatuses: Array,
 });
 
 const page = usePage();
@@ -17,6 +19,18 @@ const user = computed(() => page.props.auth.user);
 const deleteForm = useForm({});
 const showDeleteConfirm = ref(false);
 
+// Формы для админских действий
+const assignExecutorForm = useForm({
+    executor_id: null,
+});
+
+const changeStatusForm = useForm({
+    status_id: props.ticket.status?.id || null,
+});
+
+const showAssignExecutorModal = ref(false);
+const showChangeStatusModal = ref(false);
+
 // Проверки прав доступа
 const isExecutor = computed(() => {
     return props.ticket.executor?.id === user.value.id;
@@ -24,6 +38,11 @@ const isExecutor = computed(() => {
 
 const isAuthor = computed(() => {
     return props.ticket.author?.id === user.value.id;
+});
+
+const isAdmin = computed(() => {
+    return user.value.role === 'admin'
+        && user.value.ticket_category_id === props.ticket.ticket_category_id;
 });
 
 const canTakeToWork = computed(() => {
@@ -102,6 +121,40 @@ const deleteTicket = () => {
 
 const handleImageError = (event) => {
     event.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iIzI4MjgyOCIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM2NjY2NjYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5ObyBpbWFnZTwvdGV4dD48L3N2Zz4=';
+};
+
+// Админские действия
+const assignExecutor = () => {
+    if (!assignExecutorForm.executor_id) {
+        return;
+    }
+
+    assignExecutorForm.post(route('tickets.assign-executor', props.ticket.id), {
+        preserveScroll: true,
+        onSuccess: () => {
+            showAssignExecutorModal.value = false;
+            assignExecutorForm.reset();
+        },
+    });
+};
+
+const unassignExecutor = () => {
+    if (confirm('Вы уверены, что хотите снять исполнителя с заявки?')) {
+        router.post(route('tickets.unassign-executor', props.ticket.id));
+    }
+};
+
+const changeStatus = () => {
+    if (!changeStatusForm.status_id) {
+        return;
+    }
+
+    changeStatusForm.post(route('tickets.admin-change-status', props.ticket.id), {
+        preserveScroll: true,
+        onSuccess: () => {
+            showChangeStatusModal.value = false;
+        },
+    });
 };
 </script>
 
@@ -241,6 +294,82 @@ const handleImageError = (event) => {
                                 </svg>
                                 <span class="text-white font-medium">{{ formatDate(ticket.updated_at) }}</span>
                             </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Админские кнопки управления -->
+                <div v-if="isAdmin" class="bg-gradient-to-r from-purple-900/20 to-purple-800/20 backdrop-blur-xl border border-purple-500/50 rounded-2xl p-6 mb-6 shadow-xl">
+                    <h3 class="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                        <svg class="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        Управление администратора
+                    </h3>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <!-- Назначить/Сменить исполнителя -->
+                        <div class="bg-gray-900/50 rounded-lg p-4 border border-gray-700/50">
+                            <h4 class="text-sm font-semibold text-gray-300 mb-3 flex items-center gap-2">
+                                <svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                </svg>
+                                Исполнитель
+                            </h4>
+                            <div class="space-y-2">
+                                <button
+                                    @click="showAssignExecutorModal = true"
+                                    class="w-full px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded-lg transition-colors flex items-center justify-center gap-2"
+                                >
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                                    </svg>
+                                    {{ ticket.executor ? 'Сменить' : 'Назначить' }}
+                                </button>
+                                <button
+                                    v-if="ticket.executor"
+                                    @click="unassignExecutor"
+                                    class="w-full px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm rounded-lg transition-colors flex items-center justify-center gap-2"
+                                >
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                    Снять
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Изменить статус -->
+                        <div class="bg-gray-900/50 rounded-lg p-4 border border-gray-700/50">
+                            <h4 class="text-sm font-semibold text-gray-300 mb-3 flex items-center gap-2">
+                                <svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                Статус
+                            </h4>
+                            <button
+                                @click="showChangeStatusModal = true"
+                                class="w-full px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded-lg transition-colors flex items-center justify-center gap-2"
+                            >
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                </svg>
+                                Изменить статус
+                            </button>
+                        </div>
+
+                        <!-- Информация -->
+                        <div class="bg-gray-900/50 rounded-lg p-4 border border-gray-700/50">
+                            <h4 class="text-sm font-semibold text-gray-300 mb-3 flex items-center gap-2">
+                                <svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                Информация
+                            </h4>
+                            <p class="text-xs text-gray-400 leading-relaxed">
+                                У вас есть полные права на управление этой заявкой как у администратора категории "{{ ticket.ticketCategory?.name }}"
+                            </p>
                         </div>
                     </div>
                 </div>
@@ -406,6 +535,97 @@ const handleImageError = (event) => {
                                 >
                                     Удалить
                                 </DangerButton>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Модальное окно назначения исполнителя -->
+                <div v-if="showAssignExecutorModal" class="fixed inset-0 z-50 overflow-y-auto" @click.self="showAssignExecutorModal = false">
+                    <div class="flex items-center justify-center min-h-screen px-4">
+                        <div class="fixed inset-0 bg-black/70 backdrop-blur-sm transition-opacity"></div>
+                        <div class="relative bg-gray-800 rounded-2xl p-8 max-w-md w-full shadow-2xl border border-purple-700">
+                            <h3 class="text-2xl font-bold text-white mb-4 flex items-center gap-2">
+                                <svg class="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                </svg>
+                                Назначить исполнителя
+                            </h3>
+                            <p class="text-gray-300 mb-4">Выберите исполнителя из списка активных исполнителей вашей категории:</p>
+
+                            <div v-if="availableExecutors && availableExecutors.length > 0" class="mb-6">
+                                <label class="block text-sm font-medium text-gray-300 mb-2">Исполнитель</label>
+                                <select
+                                    v-model="assignExecutorForm.executor_id"
+                                    class="w-full bg-gray-700/50 border-gray-600 text-white rounded-lg px-4 py-2.5 focus:border-purple-500 focus:ring-purple-500"
+                                >
+                                    <option :value="null">Выберите исполнителя</option>
+                                    <option v-for="executor in availableExecutors" :key="executor.id" :value="executor.id">
+                                        {{ executor.name }} ({{ executor.email }})
+                                    </option>
+                                </select>
+                            </div>
+                            <div v-else class="mb-6 p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+                                <p class="text-sm text-yellow-400">Нет доступных исполнителей в вашей категории</p>
+                            </div>
+
+                            <div class="flex gap-3 justify-end">
+                                <SecondaryButton @click="showAssignExecutorModal = false">
+                                    Отмена
+                                </SecondaryButton>
+                                <PrimaryButton
+                                    @click="assignExecutor"
+                                    :class="{ 'opacity-25': assignExecutorForm.processing || !assignExecutorForm.executor_id }"
+                                    :disabled="assignExecutorForm.processing || !assignExecutorForm.executor_id"
+                                    class="!bg-purple-600 hover:!bg-purple-700"
+                                >
+                                    Назначить
+                                </PrimaryButton>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Модальное окно изменения статуса -->
+                <div v-if="showChangeStatusModal" class="fixed inset-0 z-50 overflow-y-auto" @click.self="showChangeStatusModal = false">
+                    <div class="flex items-center justify-center min-h-screen px-4">
+                        <div class="fixed inset-0 bg-black/70 backdrop-blur-sm transition-opacity"></div>
+                        <div class="relative bg-gray-800 rounded-2xl p-8 max-w-md w-full shadow-2xl border border-purple-700">
+                            <h3 class="text-2xl font-bold text-white mb-4 flex items-center gap-2">
+                                <svg class="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                Изменить статус
+                            </h3>
+                            <p class="text-gray-300 mb-4">Выберите новый статус для заявки:</p>
+
+                            <div class="mb-6">
+                                <label class="block text-sm font-medium text-gray-300 mb-2">Статус</label>
+                                <select
+                                    v-model="changeStatusForm.status_id"
+                                    class="w-full bg-gray-700/50 border-gray-600 text-white rounded-lg px-4 py-2.5 focus:border-purple-500 focus:ring-purple-500"
+                                >
+                                    <option v-for="status in allStatuses" :key="status.id" :value="status.id">
+                                        {{ status.name }}
+                                    </option>
+                                </select>
+                                <p class="mt-2 text-xs text-gray-400">
+                                    Текущий статус: <span class="font-semibold text-white">{{ ticket.status?.name }}</span>
+                                </p>
+                            </div>
+
+                            <div class="flex gap-3 justify-end">
+                                <SecondaryButton @click="showChangeStatusModal = false">
+                                    Отмена
+                                </SecondaryButton>
+                                <PrimaryButton
+                                    @click="changeStatus"
+                                    :class="{ 'opacity-25': changeStatusForm.processing }"
+                                    :disabled="changeStatusForm.processing"
+                                    class="!bg-purple-600 hover:!bg-purple-700"
+                                >
+                                    Изменить
+                                </PrimaryButton>
                             </div>
                         </div>
                     </div>
