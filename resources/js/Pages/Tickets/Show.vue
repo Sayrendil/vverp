@@ -46,15 +46,28 @@ const isAdmin = computed(() => {
 });
 
 const canTakeToWork = computed(() => {
-    // Может взять в работу, если заявка создана, нет исполнителя и пользователь является исполнителем категории
-    return props.ticket.status?.name === 'Создана'
+    // Может взять в работу, если:
+    // 1. Заявка "Создана" И нет исполнителя И пользователь исполнитель категории
+    // 2. Заявка "Отложена" И пользователь исполнитель (может возобновить свою работу)
+    // 3. Заявка "Отложена" И нет исполнителя И пользователь исполнитель категории
+    const statusCreated = props.ticket.status?.name === 'Создана'
         && !props.ticket.executor
         && props.isExecutorOfCategory;
+
+    const statusPostponed = props.ticket.status?.name === 'Отложена'
+        && (isExecutor.value || (!props.ticket.executor && props.isExecutorOfCategory));
+
+    return statusCreated || statusPostponed;
 });
 
 const canPostpone = computed(() => {
-    // Исполнитель может отложить свою заявку, которая в работе
-    return isExecutor.value && props.ticket.status?.name === 'В работе';
+    // Исполнитель может отложить заявку:
+    // 1. Если заявка "Создана" И он является исполнителем категории (может отложить без взятия в работу)
+    // 2. Если заявка "В работе" И он исполнитель этой заявки
+    const statusCreated = props.ticket.status?.name === 'Создана' && props.isExecutorOfCategory;
+    const statusInProgress = isExecutor.value && props.ticket.status?.name === 'В работе';
+
+    return statusCreated || statusInProgress;
 });
 
 const canSendForConfirmation = computed(() => {
@@ -70,6 +83,21 @@ const canConfirmCompletion = computed(() => {
 const canReturnToWork = computed(() => {
     // Автор может вернуть в работу, если заявка на подтверждении
     return isAuthor.value && props.ticket.status?.name === 'Подтверждена';
+});
+
+const isCompleted = computed(() => {
+    // Проверка, завершена ли заявка
+    return props.ticket.status?.name === 'Завершена';
+});
+
+const canEdit = computed(() => {
+    // Нельзя редактировать завершенные заявки
+    return !isCompleted.value;
+});
+
+const canDelete = computed(() => {
+    // Нельзя удалять завершенные заявки
+    return !isCompleted.value;
 });
 
 // Обработчики действий
@@ -166,12 +194,27 @@ const changeStatus = () => {
                     Заявка #{{ ticket.id }}
                 </h2>
                 <div class="flex gap-2">
-                    <SecondaryButton @click="router.visit(route('tickets.edit', ticket.id))">
+                    <SecondaryButton
+                        v-if="canEdit"
+                        @click="router.visit(route('tickets.edit', ticket.id))"
+                    >
                         Редактировать
                     </SecondaryButton>
-                    <DangerButton @click="showDeleteConfirm = true">
+                    <DangerButton
+                        v-if="canDelete"
+                        @click="showDeleteConfirm = true"
+                    >
                         Удалить
                     </DangerButton>
+                    <span
+                        v-if="isCompleted"
+                        class="inline-flex items-center px-4 py-2 bg-green-500/20 text-green-400 border border-green-500/50 rounded-lg text-sm font-medium"
+                    >
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Заявка завершена
+                    </span>
                 </div>
             </div>
         </template>

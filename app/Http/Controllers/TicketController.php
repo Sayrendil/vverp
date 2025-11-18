@@ -248,11 +248,18 @@ class TicketController extends Controller
     public function postpone(string $id)
     {
         $ticket = $this->ticketService->getTicket($id);
+        /** @var User $user */
         $user = Auth::user();
 
-        // Проверяем, является ли пользователь исполнителем заявки
-        if ($ticket->executor_id !== $user->id) {
-            return back()->with('error', 'Вы не являетесь исполнителем этой заявки');
+        // Можно отложить если:
+        // 1. Пользователь является исполнителем заявки
+        // 2. Пользователь является исполнителем категории (для статуса "Создана")
+        $isExecutor = $ticket->executor_id === $user->id;
+        $isExecutorOfCategory = $ticket->ticket_category_id
+            && $user->isExecutorInCategory($ticket->ticket_category_id);
+
+        if (!$isExecutor && !$isExecutorOfCategory) {
+            return back()->with('error', 'У вас нет прав для отложения этой заявки');
         }
 
         // Меняем статус на "Отложена"

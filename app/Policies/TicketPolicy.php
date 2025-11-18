@@ -61,7 +61,12 @@ class TicketPolicy
      */
     public function update(User $user, Ticket $ticket): bool
     {
-        // Администратор может редактировать все тикеты своей категории
+        // Нельзя редактировать завершенные заявки
+        if ($ticket->status_id === TicketStatus::COMPLETED->value) {
+            return false;
+        }
+
+        // Администратор может редактировать все тикеты своей категории (кроме завершенных)
         if ($user->isAdmin() && $user->ticket_category_id === $ticket->ticket_category_id) {
             return true;
         }
@@ -71,7 +76,7 @@ class TicketPolicy
             return $ticket->status_id === TicketStatus::CREATED->value;
         }
 
-        // Исполнитель может редактировать назначенный ему тикет
+        // Исполнитель может редактировать назначенный ему тикет (кроме завершенных)
         if ($user->id === $ticket->executor_id) {
             return true;
         }
@@ -84,7 +89,12 @@ class TicketPolicy
      */
     public function delete(User $user, Ticket $ticket): bool
     {
-        // Удалять может только администратор своей категории
+        // Нельзя удалять завершенные заявки
+        if ($ticket->status_id === TicketStatus::COMPLETED->value) {
+            return false;
+        }
+
+        // Удалять может только администратор своей категории (кроме завершенных)
         if ($user->isAdmin() && $user->ticket_category_id === $ticket->ticket_category_id) {
             return true;
         }
