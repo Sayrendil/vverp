@@ -14,12 +14,17 @@ RUN sed -i 's|deb.debian.org|ftp.ru.debian.org|g' /etc/apt/sources.list.d/debian
 
 RUN apt-get update && apt-get install -y \
     libpng-dev libjpeg-dev libfreetype6-dev libzip-dev libonig-dev git unzip curl default-mysql-client ca-certificates \
-    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
-    && apt-get install -y nodejs \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install gd pdo_mysql zip mbstring
+
+# Устанавливаем Node.js 20
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y nodejs \
+    && apt-get clean && rm -rf /var/lib/apt/lists/* \
+    && node --version \
+    && npm --version
 
 RUN npm install -g npm@latest && npm install -g yarn
 
