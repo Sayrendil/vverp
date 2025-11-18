@@ -1,0 +1,16 @@
+{
+  "registry-mirrors": [
+    "https://mirror.gcr.io",
+    "https://dockerhub.timeweb.cloud"
+  ],
+  "dns": ["8.8.8.8", "8.8.4.4", "1.1.1.1"],
+  "max-concurrent-downloads": 3,
+  "max-concurrent-uploads": 3,
+  "log-driver": "json-file",
+  "log-opts": {
+    "max-size": "10m",
+    "max-file": "3"
+  },
+  "live-restore": true,
+  "userland-proxy": false
+}
