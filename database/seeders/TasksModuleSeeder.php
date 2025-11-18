@@ -18,77 +18,16 @@ class TasksModuleSeeder extends Seeder
      */
     public function run(): void
     {
-        // 1. Создать глобальные статусы для Kanban
-        $this->createGlobalStatuses();
-
-        // 2. Создать тестовый проект
+        // 1. Создать тестовый проект (статусы создадутся автоматически через Observer)
         $project = $this->createTestProject();
 
-        // 3. Создать глобальные метки
+        // 2. Создать глобальные метки
         $this->createGlobalLabels();
 
-        // 4. Создать тестовые задачи
+        // 3. Создать тестовые задачи
         $this->createTestTasks($project);
 
         $this->command->info('✅ Tasks Module seeded successfully!');
-    }
-
-    /**
-     * Создать глобальные статусы
-     */
-    private function createGlobalStatuses(): void
-    {
-        $statuses = [
-            [
-                'name' => 'Бэклог',
-                'slug' => 'backlog',
-                'color' => '#95a5a6',
-                'position' => 1,
-                'is_initial' => true,
-                'is_final' => false,
-            ],
-            [
-                'name' => 'К выполнению',
-                'slug' => 'to_do',
-                'color' => '#3498db',
-                'position' => 2,
-                'is_initial' => false,
-                'is_final' => false,
-            ],
-            [
-                'name' => 'В работе',
-                'slug' => 'in_progress',
-                'color' => '#f39c12',
-                'position' => 3,
-                'is_initial' => false,
-                'is_final' => false,
-            ],
-            [
-                'name' => 'На проверке',
-                'slug' => 'in_review',
-                'color' => '#9b59b6',
-                'position' => 4,
-                'is_initial' => false,
-                'is_final' => false,
-            ],
-            [
-                'name' => 'Готово',
-                'slug' => 'done',
-                'color' => '#27ae60',
-                'position' => 5,
-                'is_initial' => false,
-                'is_final' => true,
-            ],
-        ];
-
-        foreach ($statuses as $status) {
-            TaskStatus::updateOrCreate(
-                ['slug' => $status['slug'], 'project_id' => null],
-                $status
-            );
-        }
-
-        $this->command->info('  ✓ Global statuses created');
     }
 
     /**
@@ -124,6 +63,7 @@ class TasksModuleSeeder extends Seeder
         }
 
         $this->command->info("  ✓ Project '{$project->name}' created");
+        $this->command->info("  ✓ Default statuses automatically created by ProjectObserver");
 
         return $project;
     }
@@ -155,7 +95,8 @@ class TasksModuleSeeder extends Seeder
      */
     private function createTestTasks(Project $project): void
     {
-        $statuses = TaskStatus::whereNull('project_id')->pluck('id', 'slug');
+        // Получить статусы ЭТОГО проекта
+        $statuses = TaskStatus::where('project_id', $project->id)->pluck('id', 'slug');
         $users = $project->members()->get();
         $labels = TaskLabel::whereNull('project_id')->get();
 
