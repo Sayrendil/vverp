@@ -50,6 +50,20 @@ if (isDictionariesActive.value) {
             <span v-show="sidebarOpen" class="ml-3 font-medium">Заявки</span>
         </Link>
 
+        <!-- Tasks / Projects -->
+        <Link :href="route('projects.index')" :class="[
+            'flex items-center rounded-lg transition-colors group',
+            sidebarOpen ? 'px-3 py-3' : 'px-3 py-3 justify-center',
+            route().current('projects.*') || route().current('tasks.*')
+                ? 'bg-green-600 text-white'
+                : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+        ]">
+            <svg class="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+            </svg>
+            <span v-show="sidebarOpen" class="ml-3 font-medium">Задачи</span>
+        </Link>
+
         <!-- Dictionaries (Admin only) - Collapsible -->
         <div v-if="$page.props.auth.user.is_admin" class="space-y-1">
             <!-- Dictionaries Toggle -->
