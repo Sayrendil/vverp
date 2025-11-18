@@ -39,6 +39,13 @@ Route::middleware([
     Route::resource('tickets', TicketController::class);
     Route::put('/tickets/{id}/status', [TicketController::class, 'updateStatus'])->name('tickets.update-status');
 
+    // Workflow заявок
+    Route::post('/tickets/{id}/take-to-work', [TicketController::class, 'takeToWork'])->name('tickets.take-to-work');
+    Route::post('/tickets/{id}/postpone', [TicketController::class, 'postpone'])->name('tickets.postpone');
+    Route::post('/tickets/{id}/send-for-confirmation', [TicketController::class, 'sendForConfirmation'])->name('tickets.send-for-confirmation');
+    Route::post('/tickets/{id}/confirm-completion', [TicketController::class, 'confirmCompletion'])->name('tickets.confirm-completion');
+    Route::post('/tickets/{id}/return-to-work', [TicketController::class, 'returnToWork'])->name('tickets.return-to-work');
+
     /*
     |--------------------------------------------------------------------------
     | Исполнители (только для администраторов)

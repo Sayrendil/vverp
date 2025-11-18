@@ -1,16 +1,78 @@
 <script setup>
-import { useForm, Link, router } from '@inertiajs/vue3';
+import { useForm, Link, router, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import DangerButton from '@/Components/UI/Buttons/DangerButton.vue';
 import SecondaryButton from '@/Components/UI/Buttons/SecondaryButton.vue';
-import { ref } from 'vue';
+import PrimaryButton from '@/Components/UI/Buttons/PrimaryButton.vue';
+import { ref, computed } from 'vue';
 
 const props = defineProps({
     ticket: Object,
+    isExecutorOfCategory: Boolean,
 });
+
+const page = usePage();
+const user = computed(() => page.props.auth.user);
 
 const deleteForm = useForm({});
 const showDeleteConfirm = ref(false);
+
+// Проверки прав доступа
+const isExecutor = computed(() => {
+    return props.ticket.executor?.id === user.value.id;
+});
+
+const isAuthor = computed(() => {
+    return props.ticket.author?.id === user.value.id;
+});
+
+const canTakeToWork = computed(() => {
+    // Может взять в работу, если заявка создана, нет исполнителя и пользователь является исполнителем категории
+    return props.ticket.status?.name === 'Создана'
+        && !props.ticket.executor
+        && props.isExecutorOfCategory;
+});
+
+const canPostpone = computed(() => {
+    // Исполнитель может отложить свою заявку, которая в работе
+    return isExecutor.value && props.ticket.status?.name === 'В работе';
+});
+
+const canSendForConfirmation = computed(() => {
+    // Исполнитель может отправить на подтверждение, если заявка в работе
+    return isExecutor.value && props.ticket.status?.name === 'В работе';
+});
+
+const canConfirmCompletion = computed(() => {
+    // Автор может подтвердить, если заявка на подтверждении
+    return isAuthor.value && props.ticket.status?.name === 'Подтверждена';
+});
+
+const canReturnToWork = computed(() => {
+    // Автор может вернуть в работу, если заявка на подтверждении
+    return isAuthor.value && props.ticket.status?.name === 'Подтверждена';
+});
+
+// Обработчики действий
+const takeToWork = () => {
+    router.post(route('tickets.take-to-work', props.ticket.id));
+};
+
+const postpone = () => {
+    router.post(route('tickets.postpone', props.ticket.id));
+};
+
+const sendForConfirmation = () => {
+    router.post(route('tickets.send-for-confirmation', props.ticket.id));
+};
+
+const confirmCompletion = () => {
+    router.post(route('tickets.confirm-completion', props.ticket.id));
+};
+
+const returnToWork = () => {
+    router.post(route('tickets.return-to-work', props.ticket.id));
+};
 
 const formatDate = (dateString) => {
     const date = new Date(dateString);
@@ -178,6 +240,78 @@ const handleImageError = (event) => {
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                                 </svg>
                                 <span class="text-white font-medium">{{ formatDate(ticket.updated_at) }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Кнопки действий -->
+                <div v-if="canTakeToWork || canPostpone || canSendForConfirmation || canConfirmCompletion || canReturnToWork" class="bg-gray-800/50 backdrop-blur-xl border border-gray-700/50 rounded-2xl p-6 mb-6 shadow-xl">
+                    <h3 class="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                        <svg class="w-6 h-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                        Действия с заявкой
+                    </h3>
+
+                    <div class="flex flex-wrap gap-3">
+                        <!-- Взять в работу -->
+                        <PrimaryButton v-if="canTakeToWork" @click="takeToWork" type="button">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            Взять в работу
+                        </PrimaryButton>
+
+                        <!-- Отложить -->
+                        <SecondaryButton v-if="canPostpone" @click="postpone" type="button">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            Отложить
+                        </SecondaryButton>
+
+                        <!-- Отправить на подтверждение -->
+                        <PrimaryButton v-if="canSendForConfirmation" @click="sendForConfirmation" type="button">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                            </svg>
+                            Отправить на подтверждение
+                        </PrimaryButton>
+
+                        <!-- Подтвердить выполнение -->
+                        <PrimaryButton v-if="canConfirmCompletion" @click="confirmCompletion" type="button">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            Подтвердить выполнение
+                        </PrimaryButton>
+
+                        <!-- Вернуть в работу -->
+                        <DangerButton v-if="canReturnToWork" @click="returnToWork" type="button">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                            </svg>
+                            Вернуть в работу
+                        </DangerButton>
+                    </div>
+
+                    <!-- Подсказки по статусам -->
+                    <div class="mt-4 p-4 bg-gray-900/50 rounded-lg border border-gray-700/30">
+                        <div class="flex items-start gap-2">
+                            <svg class="w-5 h-5 text-blue-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <div class="text-sm text-gray-300">
+                                <p v-if="canTakeToWork" class="mb-1">
+                                    <span class="font-semibold text-white">Доступные действия:</span> Вы можете взять эту заявку в работу.
+                                </p>
+                                <p v-if="isExecutor && ticket.status?.name === 'В работе'" class="mb-1">
+                                    <span class="font-semibold text-white">Вы исполнитель:</span> Можете отложить заявку или отправить на подтверждение автору.
+                                </p>
+                                <p v-if="isAuthor && ticket.status?.name === 'Подтверждена'">
+                                    <span class="font-semibold text-white">Вы автор:</span> Можете подтвердить выполнение или вернуть заявку в работу.
+                                </p>
                             </div>
                         </div>
                     </div>

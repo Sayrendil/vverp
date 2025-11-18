@@ -107,8 +107,20 @@ class TicketController extends Controller
         // Проверяем право просмотра тикета
         $this->authorize('view', $ticket);
 
+        $user = Auth::user();
+
+        // Проверяем, является ли пользователь исполнителем категории
+        $isExecutorOfCategory = false;
+        if ($ticket->ticketCategory) {
+            $isExecutorOfCategory = $ticket->ticketCategory
+                ->activeExecutors()
+                ->where('users.id', $user->id)
+                ->exists();
+        }
+
         return Inertia::render('Tickets/Show', [
             'ticket' => $ticket,
+            'isExecutorOfCategory' => $isExecutorOfCategory,
         ]);
     }
 
@@ -185,5 +197,110 @@ class TicketController extends Controller
 
         return redirect()->route('tickets.index')
             ->with('success', 'Тикет успешно удален');
+    }
+
+    /**
+     * Взять заявку в работу
+     */
+    public function takeToWork(string $id)
+    {
+        $ticket = $this->ticketService->getTicket($id);
+        $user = Auth::user();
+
+        // Проверяем, может ли пользователь взять заявку в работу
+        if ($ticket->executor_id) {
+            return back()->with('error', 'Заявка уже взята в работу');
+        }
+
+        // Проверяем, является ли пользователь исполнителем категории
+        $isExecutor = $ticket->ticketCategory
+            ->activeExecutors()
+            ->where('users.id', $user->id)
+            ->exists();
+
+        if (!$isExecutor) {
+            return back()->with('error', 'Вы не являетесь исполнителем этой категории');
+        }
+
+        // Назначаем исполнителя через сервис
+        $this->ticketService->assignExecutor($ticket, $user->id);
+
+        return back()->with('success', 'Заявка взята в работу');
+    }
+
+    /**
+     * Отложить заявку
+     */
+    public function postpone(string $id)
+    {
+        $ticket = $this->ticketService->getTicket($id);
+        $user = Auth::user();
+
+        // Проверяем, является ли пользователь исполнителем заявки
+        if ($ticket->executor_id !== $user->id) {
+            return back()->with('error', 'Вы не являетесь исполнителем этой заявки');
+        }
+
+        // Меняем статус на "Отложена"
+        $this->ticketService->updateStatus($ticket, \App\Enums\TicketStatus::POSTPONED->value);
+
+        return back()->with('success', 'Заявка отложена');
+    }
+
+    /**
+     * Отправить заявку на подтверждение
+     */
+    public function sendForConfirmation(string $id)
+    {
+        $ticket = $this->ticketService->getTicket($id);
+        $user = Auth::user();
+
+        // Проверяем, является ли пользователь исполнителем заявки
+        if ($ticket->executor_id !== $user->id) {
+            return back()->with('error', 'Вы не являетесь исполнителем этой заявки');
+        }
+
+        // Меняем статус на "Подтверждена"
+        $this->ticketService->updateStatus($ticket, \App\Enums\TicketStatus::CONFIRMED->value);
+
+        return back()->with('success', 'Заявка отправлена на подтверждение');
+    }
+
+    /**
+     * Подтвердить выполнение заявки
+     */
+    public function confirmCompletion(string $id)
+    {
+        $ticket = $this->ticketService->getTicket($id);
+        $user = Auth::user();
+
+        // Проверяем, является ли пользователь автором заявки
+        if ($ticket->author_id !== $user->id) {
+            return back()->with('error', 'Только автор может подтвердить выполнение');
+        }
+
+        // Меняем статус на "Завершена"
+        $this->ticketService->updateStatus($ticket, \App\Enums\TicketStatus::COMPLETED->value);
+
+        return back()->with('success', 'Заявка завершена');
+    }
+
+    /**
+     * Вернуть заявку в работу
+     */
+    public function returnToWork(string $id)
+    {
+        $ticket = $this->ticketService->getTicket($id);
+        $user = Auth::user();
+
+        // Проверяем, является ли пользователь автором заявки
+        if ($ticket->author_id !== $user->id) {
+            return back()->with('error', 'Только автор может вернуть заявку в работу');
+        }
+
+        // Меняем статус на "В работе"
+        $this->ticketService->updateStatus($ticket, \App\Enums\TicketStatus::IN_PROGRESS->value);
+
+        return back()->with('success', 'Заявка возвращена в работу');
     }
 }
