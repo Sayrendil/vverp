@@ -56,6 +56,14 @@ class Store extends Model implements Dictionary
     }
 
     /**
+     * Хосты для мониторинга этого магазина
+     */
+    public function hosts(): HasMany
+    {
+        return $this->hasMany(Host::class);
+    }
+
+    /**
      * Защищенные связи для проверки при удалении
      */
     protected function getProtectedRelations(): array
@@ -63,6 +71,7 @@ class Store extends Model implements Dictionary
         return [
             'tickets' => 'Заявки',
             'users' => 'Пользователи',
+            'hosts' => 'Хосты мониторинга',
         ];
     }
 }

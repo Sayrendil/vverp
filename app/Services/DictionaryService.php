@@ -25,6 +25,7 @@ class DictionaryService
         'problems' => \App\Models\Problem::class,
         'ticket_categories' => \App\Models\TicketCategory::class,
         'users' => \App\Models\User::class,
+        'hosts' => \App\Models\Host::class,
     ];
 
     /**
@@ -91,6 +92,11 @@ class DictionaryService
         }
 
         $query = $modelClass::query();
+
+        // Добавляем связи для хостов
+        if ($key === 'hosts') {
+            $query->with(['store', 'lastAvailabilityLog']);
+        }
 
         // Поиск
         if (!empty($filters['search'])) {

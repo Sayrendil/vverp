@@ -11,6 +11,7 @@ use App\Http\Controllers\TaskController;
 use App\Http\Controllers\TaskCommentController;
 use App\Http\Controllers\TaskAttachmentController;
 use App\Http\Controllers\ProjectMemberController;
+use App\Http\Controllers\MonitoringController;
 
 /*
 |--------------------------------------------------------------------------
@@ -90,6 +91,31 @@ Route::middleware([
             Route::post('/{dictionary}', [DictionaryController::class, 'store'])->name('store');
             Route::put('/{dictionary}/{id}', [DictionaryController::class, 'update'])->name('update');
             Route::delete('/{dictionary}/{id}', [DictionaryController::class, 'destroy'])->name('destroy');
+        });
+
+    /*
+    |--------------------------------------------------------------------------
+    | Мониторинг хостов (только для администраторов)
+    |--------------------------------------------------------------------------
+    */
+    Route::middleware(\App\Http\Middleware\EnsureUserIsAdmin::class)
+        ->prefix('monitoring')
+        ->name('monitoring.')
+        ->group(function () {
+            // Дашборд мониторинга
+            Route::get('/', [MonitoringController::class, 'index'])->name('index');
+
+            // Детальная информация по хосту
+            Route::get('/hosts/{host}', [MonitoringController::class, 'show'])->name('hosts.show');
+
+            // API для проверок
+            Route::post('/check-host/{host}', [MonitoringController::class, 'checkHost'])->name('check-host');
+            Route::post('/check-store/{store}', [MonitoringController::class, 'checkStoreHosts'])->name('check-store');
+            Route::post('/check-all', [MonitoringController::class, 'checkAllHosts'])->name('check-all');
+
+            // API для получения статистики (для обновления через AJAX)
+            Route::get('/api/statistics', [MonitoringController::class, 'getStatistics'])->name('api.statistics');
+            Route::get('/api/hosts/{host}/statistics', [MonitoringController::class, 'getHostStatistics'])->name('api.host-statistics');
         });
 
     /*
