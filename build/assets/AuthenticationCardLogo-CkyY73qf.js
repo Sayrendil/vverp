@@ -1,0 +1,1 @@
+import{c as t,w as o,a as s,f as e,l as r,o as n}from"./app-CP4UpOIz.js";const u={__name:"AuthenticationCardLogo",setup(l){return(c,a)=>(n(),t(e(r),{href:"/"},{default:o(()=>[...a[0]||(a[0]=[s("img",{src:"/assets/logo.svg",alt:"VVERP Logo",class:"h-20 w-auto transition-transform duration-300 hover:scale-105"},null,-1)])]),_:1}))}};export{u as _};

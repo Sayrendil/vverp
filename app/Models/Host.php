@@ -211,6 +211,24 @@ class Host extends Model implements Dictionary
     }
 
     /**
+     * Получить данные для select
+     */
+    public static function forSelect(): array
+    {
+        return static::query()
+            ->with('store')
+            ->orderBy('store_id', 'asc')
+            ->orderBy('name', 'asc')
+            ->get()
+            ->map(fn($item) => [
+                'value' => $item->id,
+                'label' => $item->store->name . ' - ' . $item->name . ' (' . $item->ip_address . ')',
+            ])
+            ->values()
+            ->toArray();
+    }
+
+    /**
      * Магазин к которому относится хост
      */
     public function store(): BelongsTo
