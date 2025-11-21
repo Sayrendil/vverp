@@ -225,8 +225,8 @@ class MonitoringService
                 'min_response_time' => $minResponseTime,
                 'max_response_time' => $maxResponseTime,
                 'avg_packet_loss' => $avgPacketLoss ? round($avgPacketLoss, 2) : 0,
-                'recent_logs' => $recentLogs,
-                'hourly_stats' => $hourlyStats,
+                'recent_logs' => $recentLogs->toArray(), // Преобразуем Collection в массив
+                'hourly_stats' => $hourlyStats->toArray(), // Преобразуем Collection в массив
             ];
         });
     }
@@ -299,5 +299,160 @@ class MonitoringService
         }
 
         return $count;
+    }
+
+    /**
+     * Получить статистику по магазинам с хостами
+     *
+     * @param int $days Количество дней для анализа
+     * @return Collection
+     */
+    public function getStoresWithHostsStatistics(int $days = 7): Collection
+    {
+        $dateFrom = now()->subDays($days);
+
+        return \App\Models\Store::query()
+            ->withCount(['hosts', 'hosts as active_hosts_count' => function ($query) {
+                $query->where('is_active', true);
+            }])
+            ->with(['hosts' => function ($query) {
+                $query->with('lastAvailabilityLog');
+            }])
+            ->having('hosts_count', '>', 0)
+            ->orderBy('name')
+            ->get()
+            ->map(function ($store) use ($dateFrom) {
+                $hosts = $store->hosts;
+
+                // Общая статистика по хостам магазина
+                $totalHosts = $hosts->count();
+                $activeHosts = $hosts->where('is_active', true)->count();
+
+                // Статистика по последним проверкам
+                $availableHosts = $hosts->filter(function ($host) {
+                    return $host->lastAvailabilityLog && $host->lastAvailabilityLog->is_available;
+                })->count();
+
+                $unavailableHosts = $hosts->filter(function ($host) {
+                    return $host->lastAvailabilityLog && !$host->lastAvailabilityLog->is_available;
+                })->count();
+
+                $notCheckedHosts = $hosts->filter(function ($host) {
+                    return !$host->lastAvailabilityLog;
+                })->count();
+
+                // Проблемные хосты магазина
+                $problematicHostsIds = $this->getProblematicHosts(10)
+                    ->where('store_id', $store->id)
+                    ->pluck('id');
+
+                return [
+                    'id' => $store->id,
+                    'name' => $store->name,
+                    'total_hosts' => $totalHosts,
+                    'active_hosts' => $activeHosts,
+                    'available_hosts' => $availableHosts,
+                    'unavailable_hosts' => $unavailableHosts,
+                    'not_checked_hosts' => $notCheckedHosts,
+                    'problematic_hosts_count' => $problematicHostsIds->count(),
+                    'status' => $this->getStoreStatus($availableHosts, $unavailableHosts, $totalHosts),
+                ];
+            });
+    }
+
+    /**
+     * Определить статус магазина по статистике хостов
+     */
+    private function getStoreStatus(int $available, int $unavailable, int $total): string
+    {
+        if ($total === 0) {
+            return 'no_hosts';
+        }
+
+        $availablePercent = $total > 0 ? ($available / $total) * 100 : 0;
+
+        if ($availablePercent >= 90) {
+            return 'healthy';
+        } elseif ($availablePercent >= 70) {
+            return 'warning';
+        } else {
+            return 'critical';
+        }
+    }
+
+    /**
+     * Получить статистику по конкретному магазину
+     *
+     * @param int $storeId ID магазина
+     * @param int $days Количество дней для анализа
+     * @return array
+     */
+    public function getStoreStatistics(int $storeId, int $days = 7): array
+    {
+        $store = \App\Models\Store::with(['hosts' => function ($query) {
+            $query->with(['lastAvailabilityLog', 'availabilityLogs' => function ($q) {
+                $q->orderBy('checked_at', 'desc')->limit(10);
+            }]);
+        }])->findOrFail($storeId);
+
+        $dateFrom = now()->subDays($days);
+        $hosts = $store->hosts;
+
+        // Общая статистика
+        $totalHosts = $hosts->count();
+        $activeHosts = $hosts->where('is_active', true)->count();
+
+        // Статистика по проверкам
+        $totalChecks = HostAvailabilityLog::whereIn('host_id', $hosts->pluck('id'))
+            ->where('checked_at', '>=', $dateFrom)
+            ->count();
+
+        $successfulChecks = HostAvailabilityLog::whereIn('host_id', $hosts->pluck('id'))
+            ->where('checked_at', '>=', $dateFrom)
+            ->where('is_available', true)
+            ->count();
+
+        $uptimePercent = $totalChecks > 0 ? round(($successfulChecks / $totalChecks) * 100, 2) : 0;
+
+        // Среднее время отклика
+        $avgResponseTime = HostAvailabilityLog::whereIn('host_id', $hosts->pluck('id'))
+            ->where('checked_at', '>=', $dateFrom)
+            ->where('is_available', true)
+            ->avg('response_time');
+
+        // Хосты с деталями
+        $hostsWithStats = $hosts->map(function ($host) use ($dateFrom) {
+            $recentLogs = $host->availabilityLogs;
+            $lastLog = $host->lastAvailabilityLog;
+
+            $totalChecks = $recentLogs->count();
+            $availableChecks = $recentLogs->where('is_available', true)->count();
+            $uptimePercent = $totalChecks > 0 ? round(($availableChecks / $totalChecks) * 100, 2) : 0;
+
+            return [
+                'id' => $host->id,
+                'name' => $host->name,
+                'ip_address' => $host->ip_address,
+                'description' => $host->description,
+                'is_active' => $host->is_active,
+                'check_interval' => $host->check_interval,
+                'last_status' => $lastLog ? ($lastLog->is_available ? 'available' : 'unavailable') : 'not_checked',
+                'last_check' => $lastLog?->checked_at,
+                'last_response_time' => $lastLog?->response_time,
+                'uptime_percent' => $uptimePercent,
+                'is_problematic' => $uptimePercent < 50 && $totalChecks >= 5,
+            ];
+        });
+
+        return [
+            'store' => $store,
+            'period_days' => $days,
+            'total_hosts' => $totalHosts,
+            'active_hosts' => $activeHosts,
+            'total_checks' => $totalChecks,
+            'uptime_percent' => $uptimePercent,
+            'avg_response_time' => $avgResponseTime ? round($avgResponseTime, 2) : null,
+            'hosts' => $hostsWithStats->values()->toArray(), // Преобразуем Collection в массив
+        ];
     }
 }

@@ -22,18 +22,35 @@ class MonitoringController extends Controller
     ) {}
 
     /**
-     * Дашборд мониторинга
+     * Дашборд мониторинга - список магазинов
      */
     public function index(Request $request): Response
     {
         $days = (int)($request->get('days', 7));
 
-        $statistics = $this->monitoringService->getOverallStatistics($days);
+        $stores = $this->monitoringService->getStoresWithHostsStatistics($days)->toArray();
+        $overallStatistics = $this->monitoringService->getOverallStatistics($days);
         $problematicHosts = $this->monitoringService->getProblematicHosts(10);
 
         return Inertia::render('Monitoring/Dashboard', [
-            'statistics' => $statistics,
-            'problematicHosts' => $problematicHosts,
+            'stores' => array_values($stores), // Преобразуем в массив с числовыми ключами
+            'statistics' => $overallStatistics,
+            'problematicHostsCount' => $problematicHosts->count(),
+            'days' => $days,
+        ]);
+    }
+
+    /**
+     * Детали магазина - список хостов
+     */
+    public function showStore(Request $request, int $storeId): Response
+    {
+        $days = (int)($request->get('days', 7));
+
+        $storeStatistics = $this->monitoringService->getStoreStatistics($storeId, $days);
+
+        return Inertia::render('Monitoring/StoreDetails', [
+            'storeStatistics' => $storeStatistics,
             'days' => $days,
         ]);
     }

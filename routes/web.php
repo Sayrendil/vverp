@@ -109,6 +109,9 @@ Route::middleware([
             // Дашборд мониторинга
             Route::get('/', [MonitoringController::class, 'index'])->name('index');
 
+            // Детали магазина (список хостов)
+            Route::get('/stores/{store}', [MonitoringController::class, 'showStore'])->name('stores.show');
+
             // Детальная информация по хосту
             Route::get('/hosts/{host}', [MonitoringController::class, 'show'])->name('hosts.show');
 
