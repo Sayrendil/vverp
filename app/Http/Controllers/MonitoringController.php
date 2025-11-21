@@ -3,9 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\Host;
+use App\Models\HostAvailabilityLog;
 use App\Services\MonitoringService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\RateLimiter;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -195,7 +197,7 @@ class MonitoringController extends Controller
             // 1. Проверка доступности БД
             $dbConnected = true;
             try {
-                \DB::connection()->getPdo();
+                DB::connection()->getPdo();
             } catch (\Exception $e) {
                 $dbConnected = false;
                 $issues[] = 'Database connection failed';

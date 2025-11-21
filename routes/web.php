@@ -25,6 +25,10 @@ Route::get('/', function () {
         : redirect()->route('login');
 });
 
+// Healthcheck endpoint для мониторинга (без авторизации)
+Route::get('/monitoring/healthcheck', [MonitoringController::class, 'healthcheck'])
+    ->name('monitoring.healthcheck');
+
 /*
 |--------------------------------------------------------------------------
 | Защищенные маршруты (требуется авторизация)
@@ -98,10 +102,6 @@ Route::middleware([
     | Мониторинг хостов (только для администраторов)
     |--------------------------------------------------------------------------
     */
-    // Healthcheck endpoint (без авторизации, для внешних систем мониторинга)
-    Route::get('/monitoring/healthcheck', [MonitoringController::class, 'healthcheck'])
-        ->name('monitoring.healthcheck');
-
     Route::middleware(\App\Http\Middleware\EnsureUserIsAdmin::class)
         ->prefix('monitoring')
         ->name('monitoring.')
