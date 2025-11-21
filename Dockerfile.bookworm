@@ -16,6 +16,7 @@ RUN echo "deb http://ftp.ru.debian.org/debian bookworm main contrib non-free" > 
 RUN apt-get update && apt-get install -y \
     libpng-dev libjpeg-dev libfreetype6-dev libzip-dev libonig-dev \
     git unzip curl default-mysql-client supervisor \
+    iputils-ping \
     && curl -sL https://deb.nodesource.com/setup_18.x | bash - \
     && apt-get update \
     && apt-get install -y nodejs \

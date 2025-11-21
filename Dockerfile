@@ -14,6 +14,7 @@ RUN sed -i 's|deb.debian.org|ftp.ru.debian.org|g' /etc/apt/sources.list.d/debian
 
 RUN apt-get update && apt-get install -y \
     libpng-dev libjpeg-dev libfreetype6-dev libzip-dev libonig-dev git unzip curl default-mysql-client ca-certificates \
+    iputils-ping \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg \

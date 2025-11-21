@@ -6,6 +6,7 @@ use App\Jobs\CheckHostAvailability;
 use App\Models\Host;
 use App\Models\HostAvailabilityLog;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -32,7 +33,7 @@ class MonitoringService
             $count++;
         }
 
-        Log::info("Scheduled monitoring checks", [
+        Log::debug("Scheduled monitoring checks", [
             'total_hosts' => $count,
             'use_queue' => $useQueue,
         ]);
@@ -133,13 +134,18 @@ class MonitoringService
     public function getProblematicHosts(int $checksCount = 10): Collection
     {
         return Host::active()
-            ->with(['lastAvailabilityLog', 'store'])
+            ->with([
+                'lastAvailabilityLog',
+                'store',
+                // Eager loading последних N логов для каждого хоста (решает N+1 проблему)
+                'availabilityLogs' => function ($query) use ($checksCount) {
+                    $query->orderBy('checked_at', 'desc')->limit($checksCount);
+                }
+            ])
             ->get()
-            ->filter(function ($host) use ($checksCount) {
-                $recentLogs = $host->availabilityLogs()
-                    ->orderBy('checked_at', 'desc')
-                    ->limit($checksCount)
-                    ->get();
+            ->filter(function ($host) {
+                // Используем уже загруженные логи
+                $recentLogs = $host->availabilityLogs;
 
                 if ($recentLogs->isEmpty()) {
                     return false;
@@ -164,13 +170,17 @@ class MonitoringService
      */
     public function getHostStatistics(int $hostId, int $days = 7): array
     {
-        $host = Host::with('store')->findOrFail($hostId);
-        $dateFrom = now()->subDays($days);
+        // Кешируем статистику по хосту на 2 минуты
+        $cacheKey = "monitoring_host_stats_{$hostId}_{$days}";
 
-        $logs = HostAvailabilityLog::where('host_id', $hostId)
-            ->where('checked_at', '>=', $dateFrom)
-            ->orderBy('checked_at', 'desc')
-            ->get();
+        return Cache::remember($cacheKey, now()->addMinutes(2), function () use ($hostId, $days) {
+            $host = Host::with('store')->findOrFail($hostId);
+            $dateFrom = now()->subDays($days);
+
+            $logs = HostAvailabilityLog::where('host_id', $hostId)
+                ->where('checked_at', '>=', $dateFrom)
+                ->orderBy('checked_at', 'desc')
+                ->get();
 
         $totalChecks = $logs->count();
         $availableChecks = $logs->where('is_available', true)->count();
@@ -204,20 +214,21 @@ class MonitoringService
             ];
         });
 
-        return [
-            'host' => $host,
-            'period_days' => $days,
-            'total_checks' => $totalChecks,
-            'available_checks' => $availableChecks,
-            'unavailable_checks' => $unavailableChecks,
-            'uptime_percent' => $uptimePercent,
-            'avg_response_time' => $avgResponseTime ? round($avgResponseTime, 2) : null,
-            'min_response_time' => $minResponseTime,
-            'max_response_time' => $maxResponseTime,
-            'avg_packet_loss' => $avgPacketLoss ? round($avgPacketLoss, 2) : 0,
-            'recent_logs' => $recentLogs,
-            'hourly_stats' => $hourlyStats,
-        ];
+            return [
+                'host' => $host,
+                'period_days' => $days,
+                'total_checks' => $totalChecks,
+                'available_checks' => $availableChecks,
+                'unavailable_checks' => $unavailableChecks,
+                'uptime_percent' => $uptimePercent,
+                'avg_response_time' => $avgResponseTime ? round($avgResponseTime, 2) : null,
+                'min_response_time' => $minResponseTime,
+                'max_response_time' => $maxResponseTime,
+                'avg_packet_loss' => $avgPacketLoss ? round($avgPacketLoss, 2) : 0,
+                'recent_logs' => $recentLogs,
+                'hourly_stats' => $hourlyStats,
+            ];
+        });
     }
 
     /**
@@ -257,9 +268,10 @@ class MonitoringService
                 }
 
                 // Проверяем, прошел ли интервал с последней проверки
+                // Используем copy() чтобы избежать мутации объекта
                 $lastCheck = $host->lastAvailabilityLog->checked_at;
                 $intervalMinutes = $host->check_interval;
-                $nextCheckTime = $lastCheck->addMinutes($intervalMinutes);
+                $nextCheckTime = $lastCheck->copy()->addMinutes($intervalMinutes);
 
                 return now()->greaterThanOrEqualTo($nextCheckTime);
             });
@@ -281,7 +293,7 @@ class MonitoringService
         }
 
         if ($count > 0) {
-            Log::info("Scheduled monitoring checks dispatched", [
+            Log::debug("Scheduled monitoring checks dispatched", [
                 'hosts_checked' => $count,
             ]);
         }

@@ -19,7 +19,7 @@ return new class extends Migration
             $table->integer('packet_loss')->default(0); // Процент потери пакетов (0-100)
             $table->text('error_message')->nullable(); // Сообщение об ошибке
             $table->timestamp('checked_at'); // Время проверки
-            $table->timestamps();
+            // Не используем timestamps, checked_at заменяет их
 
             // Индексы для быстрого поиска и аналитики
             $table->index(['host_id', 'checked_at']);

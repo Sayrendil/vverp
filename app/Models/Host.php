@@ -74,7 +74,7 @@ class Host extends Model implements Dictionary
         return [
             'store_id' => ['required', 'exists:stores,id'],
             'name' => ['required', 'string', 'max:255'],
-            'ip_address' => ['required', 'ip'],
+            'ip_address' => ['required', 'string', 'max:255'], // Поддерживаем IP и hostname
             'description' => ['nullable', 'string'],
             'is_active' => ['boolean'],
             'check_interval' => ['integer', 'min:1', 'max:1440'], // От 1 минуты до 24 часов

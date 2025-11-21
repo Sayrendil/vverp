@@ -7,6 +7,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class HostAvailabilityLog extends Model
 {
+    // Не используем timestamps, у нас есть checked_at
+    public $timestamps = false;
+
     protected $fillable = [
         'host_id',
         'is_available',

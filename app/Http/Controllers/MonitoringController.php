@@ -6,6 +6,7 @@ use App\Models\Host;
 use App\Services\MonitoringService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -55,6 +56,19 @@ class MonitoringController extends Controller
      */
     public function checkHost(int $hostId): JsonResponse
     {
+        // Rate limiting: максимум 3 проверки в минуту для одного хоста
+        $key = 'check-host-' . $hostId;
+
+        if (RateLimiter::tooManyAttempts($key, 3)) {
+            $seconds = RateLimiter::availableIn($key);
+            return response()->json([
+                'success' => false,
+                'message' => "Слишком много запросов. Попробуйте через {$seconds} сек.",
+            ], 429);
+        }
+
+        RateLimiter::hit($key, 60); // 60 секунд
+
         try {
             $host = Host::findOrFail($hostId);
 
@@ -77,6 +91,19 @@ class MonitoringController extends Controller
      */
     public function checkStoreHosts(int $storeId): JsonResponse
     {
+        // Rate limiting: максимум 2 проверки всех хостов магазина в 5 минут
+        $key = 'check-store-' . $storeId;
+
+        if (RateLimiter::tooManyAttempts($key, 2)) {
+            $seconds = RateLimiter::availableIn($key);
+            return response()->json([
+                'success' => false,
+                'message' => "Слишком много запросов. Попробуйте через " . ceil($seconds / 60) . " мин.",
+            ], 429);
+        }
+
+        RateLimiter::hit($key, 300); // 5 минут
+
         try {
             $count = $this->monitoringService->checkStoreHosts($storeId, useQueue: true);
 
@@ -98,6 +125,19 @@ class MonitoringController extends Controller
      */
     public function checkAllHosts(): JsonResponse
     {
+        // Rate limiting: максимум 1 проверка всех хостов в 10 минут
+        $key = 'check-all-hosts';
+
+        if (RateLimiter::tooManyAttempts($key, 1)) {
+            $seconds = RateLimiter::availableIn($key);
+            return response()->json([
+                'success' => false,
+                'message' => "Слишком много запросов. Попробуйте через " . ceil($seconds / 60) . " мин.",
+            ], 429);
+        }
+
+        RateLimiter::hit($key, 600); // 10 минут
+
         try {
             $count = $this->monitoringService->checkAllActiveHosts(useQueue: true);
 
@@ -140,5 +180,70 @@ class MonitoringController extends Controller
         $statistics = $this->monitoringService->getHostStatistics($hostId, $days);
 
         return response()->json($statistics);
+    }
+
+    /**
+     * Healthcheck endpoint для мониторинга системы мониторинга
+     * Проверяет работоспособность: БД, очередей, последних проверок
+     */
+    public function healthcheck(): JsonResponse
+    {
+        $status = 'healthy';
+        $issues = [];
+
+        try {
+            // 1. Проверка доступности БД
+            $dbConnected = true;
+            try {
+                \DB::connection()->getPdo();
+            } catch (\Exception $e) {
+                $dbConnected = false;
+                $issues[] = 'Database connection failed';
+                $status = 'unhealthy';
+            }
+
+            // 2. Проверка активности проверок (последняя проверка должна быть не старше 10 минут)
+            $lastCheck = HostAvailabilityLog::latest('checked_at')->first();
+            $lastCheckTime = $lastCheck ? $lastCheck->checked_at : null;
+            $minutesSinceLastCheck = $lastCheckTime ? now()->diffInMinutes($lastCheckTime) : null;
+
+            if (!$lastCheckTime || $minutesSinceLastCheck > 10) {
+                $issues[] = 'No recent checks (last check: ' . ($minutesSinceLastCheck ?? 'never') . ' minutes ago)';
+                $status = 'warning';
+            }
+
+            // 3. Проверка наличия активных хостов
+            $activeHostsCount = Host::active()->count();
+            if ($activeHostsCount === 0) {
+                $issues[] = 'No active hosts configured';
+                $status = 'warning';
+            }
+
+            // 4. Проверка количества проблемных хостов
+            $problematicHostsCount = $this->monitoringService->getProblematicHosts(10)->count();
+            if ($problematicHostsCount > 0) {
+                $issues[] = "{$problematicHostsCount} problematic hosts detected";
+                // Не меняем статус на unhealthy, это нормальная ситуация
+            }
+
+            return response()->json([
+                'status' => $status,
+                'timestamp' => now()->toIso8601String(),
+                'checks' => [
+                    'database' => $dbConnected ? 'ok' : 'failed',
+                    'last_check_minutes_ago' => $minutesSinceLastCheck,
+                    'active_hosts' => $activeHostsCount,
+                    'problematic_hosts' => $problematicHostsCount,
+                ],
+                'issues' => $issues,
+            ], $status === 'unhealthy' ? 503 : 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'unhealthy',
+                'timestamp' => now()->toIso8601String(),
+                'error' => $e->getMessage(),
+            ], 503);
+        }
     }
 }

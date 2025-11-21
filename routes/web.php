@@ -98,6 +98,10 @@ Route::middleware([
     | Мониторинг хостов (только для администраторов)
     |--------------------------------------------------------------------------
     */
+    // Healthcheck endpoint (без авторизации, для внешних систем мониторинга)
+    Route::get('/monitoring/healthcheck', [MonitoringController::class, 'healthcheck'])
+        ->name('monitoring.healthcheck');
+
     Route::middleware(\App\Http\Middleware\EnsureUserIsAdmin::class)
         ->prefix('monitoring')
         ->name('monitoring.')

@@ -23,7 +23,7 @@ class CheckHostAvailability implements ShouldQueue
     /**
      * Количество попыток выполнения задачи
      */
-    public int $tries = 2;
+    public int $tries = 3;
 
     /**
      * Таймаут выполнения (секунды)
@@ -32,8 +32,9 @@ class CheckHostAvailability implements ShouldQueue
 
     /**
      * Задержка перед повторными попытками (секунды)
+     * Увеличенные интервалы для лучшей обработки сетевых проблем
      */
-    public array $backoff = [5, 15];
+    public array $backoff = [10, 30, 60];
 
     /**
      * @param int $hostId ID хоста для проверки
@@ -43,6 +44,15 @@ class CheckHostAvailability implements ShouldQueue
     ) {
         // Используем отдельную очередь для мониторинга
         $this->onQueue('monitoring');
+    }
+
+    /**
+     * Уникальный ID задачи для предотвращения дублирования
+     * Если задача с таким ID уже в очереди, новая не будет добавлена
+     */
+    public function uniqueId(): string
+    {
+        return 'check-host-' . $this->hostId;
     }
 
     /**
@@ -59,11 +69,11 @@ class CheckHostAvailability implements ShouldQueue
             }
 
             if (!$host->is_active) {
-                Log::info("Host is inactive, skipping check", ['host_id' => $this->hostId]);
+                Log::debug("Host is inactive, skipping check", ['host_id' => $this->hostId]);
                 return;
             }
 
-            Log::info("Checking host availability", [
+            Log::debug("Checking host availability", [
                 'host_id' => $host->id,
                 'host_name' => $host->name,
                 'ip_address' => $host->ip_address,
@@ -82,11 +92,21 @@ class CheckHostAvailability implements ShouldQueue
                 'checked_at' => now(),
             ]);
 
-            Log::info("Host availability check completed", [
-                'host_id' => $host->id,
-                'is_available' => $result['is_available'],
-                'response_time' => $result['response_time'],
-            ]);
+            // Логируем только проблемы или важные события
+            if (!$result['is_available']) {
+                Log::warning("Host is unavailable", [
+                    'host_id' => $host->id,
+                    'host_name' => $host->name,
+                    'ip_address' => $host->ip_address,
+                    'error_message' => $result['error_message'],
+                ]);
+            } else {
+                Log::debug("Host availability check completed", [
+                    'host_id' => $host->id,
+                    'is_available' => $result['is_available'],
+                    'response_time' => $result['response_time'],
+                ]);
+            }
 
         } catch (\Exception $e) {
             Log::error("Error checking host availability", [
@@ -124,6 +144,15 @@ class CheckHostAvailability implements ShouldQueue
         $isWindows = strtoupper(substr(PHP_OS, 0, 3)) === 'WIN';
 
         try {
+            // Проверяем доступность команды ping
+            $pingCommand = $isWindows ? 'ping' : 'ping';
+            $checkCommand = $isWindows ? 'where ping' : 'which ping';
+            exec($checkCommand, $checkOutput, $checkReturn);
+
+            if ($checkReturn !== 0) {
+                throw new \Exception('Ping command is not available on this system');
+            }
+
             // Формируем команду ping в зависимости от ОС
             if ($isWindows) {
                 // Windows: ping -n 4 -w timeout_in_ms ip
