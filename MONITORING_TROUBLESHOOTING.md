@@ -4,22 +4,38 @@
 
 ### 1. Перезапустить queue worker (обязательно после обновления кода!)
 
+**У вас отдельный контейнер для очереди - `vverp_queue`**
+
 ```bash
 # На production сервере
-cd /home/erp/vverp
 
-# Остановить старые воркеры
-sudo supervisorctl stop vverp-monitoring-queue:*
+# Вариант 1: Перезапустить контейнер очереди (рекомендуется)
+sudo docker restart vverp_queue
 
-# ИЛИ если supervisor не используется
-ps aux | grep "queue:work.*monitoring"
-kill -9 <PID_процесса>
+# Вариант 2: Остановить и запустить заново
+sudo docker stop vverp_queue
+sudo docker start vverp_queue
 
-# Запустить заново
-sudo supervisorctl start vverp-monitoring-queue:*
+# Проверить что запустился
+sudo docker ps | grep vverp_queue
 
-# ИЛИ вручную
-php artisan queue:work --queue=monitoring --sleep=3 --tries=3 --max-time=3600
+# Посмотреть логи контейнера
+sudo docker logs -f vverp_queue --tail 50
+```
+
+**Если используется supervisor внутри контейнера:**
+```bash
+# Зайти в контейнер
+sudo docker exec -it vverp_queue bash
+
+# Проверить статус
+supervisorctl status
+
+# Перезапустить воркеры
+supervisorctl restart all
+
+# Выйти
+exit
 ```
 
 ### 2. Проверить доступность команды ping
@@ -135,15 +151,22 @@ setcap cap_net_raw+ep /bin/ping
 ### Проблема: Queue worker не обрабатывает задачи
 **Решение:**
 ```bash
-# Проверить статус
-sudo supervisorctl status
+# Проверить статус контейнера очереди
+sudo docker ps | grep vverp_queue
+
+# Проверить логи контейнера
+sudo docker logs vverp_queue --tail 50
+
+# Перезапустить контейнер
+sudo docker restart vverp_queue
 
 # Проверить failed jobs
-php artisan queue:failed
+sudo docker exec vverp_app php artisan queue:failed
 
 # Очистить failed jobs и перезапустить
-php artisan queue:flush
-php artisan queue:restart
+sudo docker exec vverp_app php artisan queue:flush
+sudo docker exec vverp_app php artisan queue:restart
+sudo docker restart vverp_queue
 ```
 
 ### Проблема: Хост доступен вручную, но не через Laravel
