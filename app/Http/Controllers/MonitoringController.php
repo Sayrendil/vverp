@@ -207,7 +207,7 @@ class MonitoringController extends Controller
             // 2. Проверка активности проверок (последняя проверка должна быть не старше 10 минут)
             $lastCheck = HostAvailabilityLog::latest('checked_at')->first();
             $lastCheckTime = $lastCheck ? $lastCheck->checked_at : null;
-            $minutesSinceLastCheck = $lastCheckTime ? now()->diffInMinutes($lastCheckTime) : null;
+            $minutesSinceLastCheck = $lastCheckTime ? now()->diffInMinutes($lastCheckTime, false) : null;
 
             if (!$lastCheckTime || $minutesSinceLastCheck > 10) {
                 $issues[] = 'No recent checks (last check: ' . ($minutesSinceLastCheck ?? 'never') . ' minutes ago)';
